@@ -34,7 +34,7 @@ public class Log
             {
                 File f = new File(logDir);
                 f.mkdirs();
-                f = new File(logDir + "log_" + (startTime / 1000) + ".log");
+                f = new File(logDir + "/log_" + (startTime / 1000) + ".log");
                 f.createNewFile();
                 bw = new BufferedWriter(new FileWriter(f));
                 useLogFile = true;
