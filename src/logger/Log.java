@@ -56,11 +56,7 @@ public class Log
     private static String getTime()
     {
         long secs = (System.currentTimeMillis() - startTime) / 1000;
-        int mins = (int) (secs / 60);
-        secs -= mins * 60;
-        int hours = mins / 60;
-        mins -= hours * 60;
-        return "[" + String.format("%02d", hours) + ":" + String.format("%02d", mins) + ":" + String.format("%02d", secs) + "]";
+        return "[" + String.format("%02d", secs / 3600) + ":" + String.format("%02d", (secs / 60) % 60) + ":" + String.format("%02d", secs % 60) + "]";
     }
 
     public static String getCallerClassName()
