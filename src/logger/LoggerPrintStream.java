@@ -1,7 +1,5 @@
 package logger;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.PrintStream;
 
 public class LoggerPrintStream extends PrintStream
@@ -14,10 +12,10 @@ public class LoggerPrintStream extends PrintStream
         this.isOut = isOut;
     }
 
-    protected void println0(@NotNull String s) { super.println(s); }
+    protected void println0(String s) { super.println(s); }
 
     @Override
-    public void println(@NotNull String s)
+    public void println(String s)
     {
         ++Log.ClassGetter.TMP;
         if(isOut) { Log.out(s); }
@@ -25,7 +23,7 @@ public class LoggerPrintStream extends PrintStream
     }
 
     @Override
-    public void println(@NotNull Object o)
+    public void println(Object o)
     {
         ++Log.ClassGetter.TMP;
         println(o.toString());
