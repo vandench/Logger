@@ -4,39 +4,33 @@ import java.io.*;
 
 public class Log
 {
-    static
+    protected static boolean m_debug;
+    protected static boolean useLogFile;
+
+    protected static BufferedWriter bw = null;
+    protected static PrintFormat pf = null;
+
+    public static void close()
     {
-        System.setProperty("StackTraceLoggerActive", "true");
-        Runtime.getRuntime().addShutdownHook(new Thread()
-        {
-            @Override
-            public void run() { close(); }
-        });
+        if(bw == null) { return; }
+        try { bw.close(); }
+        catch(IOException e) {}
     }
-
-    protected static boolean        m_debug    = false;
-    protected static long           startTime  = 0;
-    protected static BufferedWriter bw         = null;
-    protected static boolean        useLogFile = false;
-    protected static PrintFormat    pf         = null;
-
-    public static void close() { if(bw == null) { return; } try { bw.close(); } catch(IOException e) {} }
 
     public static void createLogger() { createLogger(false); }
     public static void createLogger(String logDir) { createLogger(false, logDir); }
-    public static void createLogger(boolean debug) { createLogger(debug, null); }
+    public static void createLogger(boolean debug) { createLogger(debug, ""); }
     public static void createLogger(boolean debug, String logDir) { createLogger(debug, logDir, "[timestamp] [type] [caller_class]: msg", "hh:mm:ss"); }
     public static void createLogger(boolean debug, String logDir, String format, String timeFormat)
     {
-        startTime = System.currentTimeMillis();
         pf = new PrintFormat(format, timeFormat);
         try
         {
-            if(logDir != null && logDir.length() != 0)
+            if(logDir.length() != 0)
             {
                 File f = new File(logDir);
-                if(!f.mkdirs()) { throw new IOException(); }
-                f = new File(logDir + "/log_" + (startTime / 1000) + ".log");
+                f.mkdirs();
+                f = new File(new StringBuilder(logDir).append("/log_").append(System.currentTimeMillis() / 1000).append(".log").toString());
                 if(!f.createNewFile()) { throw new IOException(); }
                 bw = new BufferedWriter(new FileWriter(f));
                 useLogFile = true;
@@ -52,30 +46,31 @@ public class Log
 
     public static void setDebugMode(boolean debug)
     {
-        if(m_debug && !debug) { Log.debug("Logger disabling debug mode."); }
-        else if(!m_debug && debug) { Log.debug("Logger enabling debug mode."); }
+        boolean tmp = m_debug;
         m_debug = debug;
-    }
-
-    protected static String getCallerClassName()
-    {
-        StackTraceElement[] stElements = Thread.currentThread().getStackTrace();
-        for(int i = 1; i < stElements.length; ++i)
-        {
-            StackTraceElement ste = stElements[i];
-            if(!ste.getClassName().equals(Log.class.getName()) && ste.getClassName().indexOf("java.lang.Thread") != 0) { return ste.getClassName(); }
-        }
-        return "Unknown Class";
+        if(tmp && !debug) { Log.debug("Logger disabling debug mode."); }
+        else if(!tmp && debug) { Log.debug("Logger enabling debug mode."); }
     }
 
     public static void log(LogType type, String msg)
     {
-        String out = pf.getPrintString(type.toString(), getCallerClassName(), msg);
+        String out = pf.getPrintString(type.toString(), ClassGetter.getCallerClassName(), msg);
         try { if(useLogFile) { bw.write(out + "\n"); } } catch(IOException e) { useLogFile = false; }
         if(type == LogType.DEBUG && !m_debug) { return; }
-        type.output.println(out);
+        if(type.output instanceof LoggerPrintStream) { ((LoggerPrintStream) type.output).println0(out); }
+        else { type.output.println(out); }
         type.output.flush();
     }
+
+    /* BEGIN_SYS_OUT */
+    static void out(String msg) { log(LogType.STD_OUT, msg); }
+    static void out(Object msg) { out(msg.toString()); }
+    /* END_SYS_OUT */
+
+    /* BEGIN_SYS_OUT */
+    static void err(String msg) { log(LogType.STD_ERR, msg); }
+    static void err(Object msg) { err(msg.toString()); }
+    /* END_SYS_OUT */
 
     /* BEGIN_INFO */
     public static void info(String msg) { log(LogType.INFO, msg); }
@@ -153,6 +148,8 @@ public class Log
 
     public enum LogType
     {
+        STD_OUT(System.out),
+        STD_ERR(System.err),
         INFO(System.out),
         WARN(System.out),
         ERROR(System.err),
@@ -165,5 +162,38 @@ public class Log
         {
             this.output = output;
         }
+    }
+
+    protected static class ClassGetter
+    {
+        protected static final int BASE_DEPTH = 4;
+        protected static int TMP = 0;
+
+        protected static String getCallerClassName()
+        {
+            StackTraceElement[] stElements = Thread.currentThread().getStackTrace();
+            StackTraceElement element = stElements[BASE_DEPTH + TMP];
+            if (element.getClassName().startsWith("kotlin.io.")) { element = stElements[BASE_DEPTH + 2 + TMP]; }
+            else if (element.getClassName().startsWith("java.lang.Throwable")) { element = stElements[BASE_DEPTH + 4 + TMP]; }
+            TMP = 0;
+
+            return element.getClassName();
+        }
+    }
+
+    static
+    {
+        m_debug = false;
+        useLogFile = false;
+        bw = null;
+        pf = null;
+        System.setProperty("StackTraceLoggerActive", "true");
+        Runtime.getRuntime().addShutdownHook(new Thread()
+        {
+            @Override
+            public void run() { close(); }
+        });
+        System.setOut(new LoggerPrintStream(System.out, true));
+        System.setErr(new LoggerPrintStream(System.err, false));
     }
 }
